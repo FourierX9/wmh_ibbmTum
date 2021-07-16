@@ -1,0 +1,224 @@
+# Fully Convolutional Network Ensembles for White Matter Hyperintensities Segmentation in MR Images
+# Written By: Hongwei Li, Gongfa Jianga, Jianguo Zhang, Ruixuan Wang, Zhaolei Wang, Wei-Shi Zheng, Bjoern Menze 
+# Available online 18 August 2018, 1053-8119/© 2018 Elsevier Inc. All rights reserved.
+# NeuroImage 183 (2018) 650–665.
+
+# Code Updated by: Mohsen MohammadVali'ee, Department of Biomedical Engineering, University of Isfahan, Iran
+# Windows 10, Python 3.8.8, Tensorflow 2.3.0, Keras 2.4.3
+
+# Fast & Easy Test
+
+
+from __future__ import print_function
+import os
+import numpy as np
+import tensorflow as tf
+import difflib
+import SimpleITK as sitk
+import scipy.spatial
+from keras.models import Model
+from keras.layers import Input, merge, Convolution2D, MaxPooling2D, UpSampling2D, Cropping2D, ZeroPadding2D
+from keras.layers import Conv2D, Concatenate
+from keras.optimizers import Adam
+from evaluation import getDSC, getHausdorff, getLesionDetection, getAVD, getImages  # Please first run evaluataion 
+from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint
+from keras import backend as K
+from scipy import ndimage
+import matplotlib
+from sklearn.utils import class_weight
+
+
+# Define U-NET  
+smooth = 1.
+def dice_coef_for_training(y_true, y_pred):
+    print(np.shape(y_pred))
+    y_true_f = K.flatten(y_true)
+    y_pred_f = K.flatten(y_pred)
+    intersection = K.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+def dice_coef_loss(y_true, y_pred):
+    print(np.shape(y_pred))
+    print(np.shape(y_true))
+    return -dice_coef_for_training(y_true, y_pred)
+
+def get_crop_shape(target, refer):
+
+        cw = (target.get_shape()[2] - refer.get_shape()[2])
+        assert (cw >= 0)
+        if cw % 2 != 0:
+            cw1, cw2 = int(cw/2), int(cw/2) + 1
+        else:
+            cw1, cw2 = int(cw/2), int(cw/2)
+
+        ch = (target.get_shape()[1] - refer.get_shape()[1])
+        assert (ch >= 0)
+        if ch % 2 != 0:
+            ch1, ch2 = int(ch/2), int(ch/2) + 1
+        else:
+            ch1, ch2 = int(ch/2), int(ch/2)
+
+        return (ch1, ch2), (cw1, cw2)
+
+def get_unet(img_shape=None):
+    data_format = "channels_last"
+    inputs = Input(shape=img_shape)
+    concat_axis = -1
+
+    conv1 = Conv2D(64, (5, 5), activation='relu', padding='same', data_format=data_format, name='conv1_1')(inputs)
+    conv1 = Conv2D(64, (5, 5), activation='relu', padding='same', data_format=data_format)(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2), data_format=data_format)(conv1)
+    conv2 = Conv2D(96, (3, 3), activation='relu', padding='same', data_format=data_format)(pool1)
+    conv2 = Conv2D(96, (3, 3), activation='relu', padding='same', data_format=data_format)(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2), data_format=data_format)(conv2)
+
+    conv3 = Conv2D(128, (3, 3), activation='relu', padding='same', data_format=data_format)(pool2)
+    conv3 = Conv2D(128, (3, 3), activation='relu', padding='same', data_format=data_format)(conv3)
+    pool3 = MaxPooling2D(pool_size=(2, 2), data_format=data_format)(conv3)
+
+    conv4 = Conv2D(256, (3, 3), activation='relu', padding='same', data_format=data_format)(pool3)
+    conv4 = Conv2D(256, (4, 4), activation='relu', padding='same', data_format=data_format)(conv4)
+    pool4 = MaxPooling2D(pool_size=(2, 2), data_format=data_format)(conv4)
+
+    conv5 = Conv2D(512, (3, 3), activation='relu', padding='same', data_format=data_format)(pool4)
+    conv5 = Conv2D(512, (3, 3), activation='relu', padding='same', data_format=data_format)(conv5)
+
+    up_conv5 = UpSampling2D(size=(2, 2), data_format=data_format)(conv5)
+    ch, cw = get_crop_shape(conv4, up_conv5)
+    crop_conv4 = Cropping2D(cropping=(ch, cw), data_format=data_format)(conv4)
+    up6 = Concatenate(axis=concat_axis)([up_conv5, crop_conv4])
+    conv6 = Conv2D(256, (3, 3), activation='relu', padding='same', data_format=data_format)(up6)
+    conv6 = Conv2D(256, (3, 3), activation='relu', padding='same', data_format=data_format)(conv6)
+
+    up_conv6 = UpSampling2D(size=(2, 2), data_format=data_format)(conv6)
+    ch, cw = get_crop_shape(conv3, up_conv6)
+    crop_conv3 = Cropping2D(cropping=(ch, cw), data_format=data_format)(conv3)
+    up7 = Concatenate(axis=concat_axis)([up_conv6, crop_conv3])
+    conv7 = Conv2D(128, (3, 3), activation='relu', padding='same', data_format=data_format)(up7)
+    conv7 = Conv2D(128, (3, 3), activation='relu', padding='same', data_format=data_format)(conv7)
+
+    up_conv7 = UpSampling2D(size=(2, 2), data_format=data_format)(conv7)
+    ch, cw = get_crop_shape(conv2, up_conv7)
+    crop_conv2 = Cropping2D(cropping=(ch, cw), data_format=data_format)(conv2)
+    up8 = Concatenate(axis=concat_axis)([up_conv7, crop_conv2])
+    conv8 = Conv2D(96, (3, 3), activation='relu', padding='same', data_format=data_format)(up8)
+    conv8 = Conv2D(96, (3, 3), activation='relu', padding='same', data_format=data_format)(conv8)
+
+    up_conv8 = UpSampling2D(size=(2, 2), data_format=data_format)(conv8)
+    ch, cw = get_crop_shape(conv1, up_conv8)
+    crop_conv1 = Cropping2D(cropping=(ch, cw), data_format=data_format)(conv1)
+    up9 = Concatenate(axis=concat_axis)([up_conv8, crop_conv1])
+    conv9 = Conv2D(64, (3, 3), activation='relu', padding='same', data_format=data_format)(up9)
+    conv9 = Conv2D(64, (3, 3), activation='relu', padding='same', data_format=data_format)(conv9)
+
+    ch, cw = get_crop_shape(inputs, conv9)
+    conv9 = ZeroPadding2D(padding=(ch, cw), data_format=data_format)(conv9)
+    conv10 = Conv2D(1, (1, 1), activation='sigmoid', data_format=data_format)(conv9)
+    model = Model(inputs,conv10)
+    model.compile(optimizer=Adam(lr=(1e-4) * 2), loss=dice_coef_loss, metrics=[dice_coef_for_training])
+
+    return model
+
+
+def preprocessing(FLAIR_array, T1_array):
+    
+    brain_mask = np.ndarray(np.shape(FLAIR_array), dtype=np.float32)
+    brain_mask[FLAIR_array >=thresh] = 1
+    brain_mask[FLAIR_array < thresh] = 0
+    for iii in range(np.shape(FLAIR_array)[0]):
+        brain_mask[iii,:,:] = scipy.ndimage.morphology.binary_fill_holes(brain_mask[iii,:,:])  #fill the holes inside brain
+    
+    FLAIR_array -=np.mean(FLAIR_array[brain_mask == 1])      #Gaussion Normalization
+    FLAIR_array /=np.std(FLAIR_array[brain_mask == 1])
+    
+    rows_o = np.shape(FLAIR_array)[1]
+    cols_o = np.shape(FLAIR_array)[2]
+    FLAIR_array = FLAIR_array[:, int((rows_o-rows_standard)/2):int((rows_o-rows_standard)/2)+rows_standard, int((cols_o-cols_standard)/2):int((cols_o-cols_standard)/2)+cols_standard]
+    
+    if two_modalities:
+        T1_array -=np.mean(T1_array[brain_mask == 1])      #Gaussion Normalization
+        T1_array /=np.std(T1_array[brain_mask == 1])
+        T1_array = T1_array[:, int((rows_o-rows_standard)/2):int((rows_o-rows_standard)/2)+rows_standard, int((cols_o-cols_standard)/2):int((cols_o-cols_standard)/2)+cols_standard]
+    
+        imgs_two_channels = np.concatenate((FLAIR_array[..., np.newaxis], T1_array[..., np.newaxis]), axis = 3)
+        return imgs_two_channels
+    else: 
+        return FLAIR_array[..., np.newaxis]
+
+
+def postprocessing(FLAIR_array, pred):
+    start_slice = int(np.shape(FLAIR_array)[0]*per)
+    num_o = np.shape(FLAIR_array)[1]  # original size
+    rows_o = np.shape(FLAIR_array)[1]
+    cols_o = np.shape(FLAIR_array)[2]
+    original_pred = np.zeros(np.shape(FLAIR_array), dtype=np.float32)
+    original_pred[:,int((rows_o-rows_standard)/2):int((rows_o-rows_standard)/2)+rows_standard,int((cols_o-cols_standard)/2):int((cols_o-cols_standard)/2)+cols_standard] = pred[:,:,:,0]
+    original_pred[0: start_slice, ...] = 0
+    original_pred[(num_o-start_slice):num_o, ...] = 0
+    return original_pred
+
+## Some Pre-Defined Parameters 
+rows_standard = 200  #the input size 
+cols_standard = 200
+thresh = 30   # threshold for getting the brain mask
+per = 0.125
+two_modalities = True  # set two modalities or single modality as the input
+compute_metric = False # if you want to compute some evaluation metric between the segmentation result and the groundtruth 
+
+inputDir = 'input_dir'
+outputDir = 'result'
+if not os.path.exists(outputDir):
+    os.mkdir(outputDir)
+# Read data
+if two_modalities:
+    img_shape=(rows_standard, cols_standard, 2)
+    model_dir = 'pre_F_T1'
+    FLAIR_image = sitk.ReadImage(os.path.join(inputDir, 'FLAIR.nii.gz'))
+    FLAIR_array = sitk.GetArrayFromImage(FLAIR_image)
+    T1_image = sitk.ReadImage(os.path.join(inputDir, 'T1.nii.gz'))
+    T1_array = sitk.GetArrayFromImage(T1_image)
+    imgs_test = preprocessing(np.float32(FLAIR_array), np.float32(T1_array))  # data preprocessing 
+else:
+    img_shape=(rows_standard, cols_standard, 1)
+    model_dir = 'pre_F_only'
+    FLAIR_image = sitk.ReadImage(os.path.join(inputDir, 'FLAIR.nii.gz')) #data preprocessing 
+    FLAIR_array = sitk.GetArrayFromImage(FLAIR_image)
+    T1_array = []
+    imgs_test = preprocessing(np.float32(FLAIR_array), np.float32(T1_array)) 
+
+
+# Load Model
+model = get_unet(img_shape) 
+model.load_weights(os.path.join(model_dir,'0.h5'))  # 3 ensemble models
+print('-'*30)
+print('Predicting masks on test data...') 
+pred_1 = model.predict(imgs_test, batch_size=1, verbose=1)
+model.load_weights(os.path.join(model_dir, '1.h5')) 
+pred_2 = model.predict(imgs_test, batch_size=1, verbose=1)
+model.load_weights(os.path.join(model_dir, '2.h5'))
+pred_3 = model.predict(imgs_test, batch_size=1, verbose=1)
+pred = (pred_1+pred_2+pred_3)/3
+pred[pred[...,0] > 0.45] = 1      #0.45 thresholding 
+pred[pred[...,0] <= 0.45] = 0
+
+original_pred = postprocessing(FLAIR_array, pred) # get the original size to match
+
+# Save Data
+filename_resultImage = os.path.join(outputDir,'out_mask.nii.gz')
+sitk.WriteImage(sitk.GetImageFromArray(original_pred), filename_resultImage )
+
+# 
+if compute_metric: 
+    filename_testImage = os.path.join(inputDir + '/wmh.nii.gz')
+    testImage, resultImage = getImages(filename_testImage, filename_resultImage)
+    dsc = getDSC(testImage, resultImage)
+    avd = getAVD(testImage, resultImage) 
+#    h95 = getHausdorff(testImage, resultImage) # the calculation of H95 has some issues in python 3+. 
+    recall, f1 = getLesionDetection(testImage, resultImage)
+    print('Result of prediction:')
+    print('Dice',                dsc,       ('higher is better, max=1'))
+#   print('HD',                  h95, 'mm',  '(lower is better, min=0)')
+    print('AVD',                 avd,  '%',  '(lower is better, min=0)')
+    print('Lesion detection', recall,       '(higher is better, max=1)')
+    print('Lesion F1',            f1,       '(higher is better, max=1)')
+
