@@ -1,0 +1,139 @@
+# Fully Convolutional Network Ensembles for White Matter Hyperintensities Segmentation in MR Images
+# Written By: Hongwei Li, Gongfa Jianga, Jianguo Zhang, Ruixuan Wang, Zhaolei Wang, Wei-Shi Zheng, Bjoern Menze 
+# Available online 18 August 2018, 1053-8119/© 2018 Elsevier Inc. All rights reserved.
+# NeuroImage 183 (2018) 650–665.
+
+# Code Developer: Mohsen MohammadVali'ee, Department of Biomedical Engineering, University of Esfahan, Iran
+# Windows 10, Python 3.8.8, Tensorflow 2.3.0, Keras 2.4.3
+
+# Show Properies & Display Image or mask Slices of Dataset
+# You can select dataset and slice
+
+
+# Show Properies & Display Orig 3D Image of T1 (Case 100 in GE3T Dataset)
+import matplotlib
+matplotlib.use('TkAgg')
+from matplotlib import pylab as plt
+import nibabel as nib
+import matplotlib.pyplot as plt
+from nibabel import nifti1
+from nibabel.viewers import OrthoSlicer3D
+img=nib.load('Dataset/GE3T/100/orig/3DT1.nii')   # Select dataset dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(50,queue-25,50): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(1,3,num)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Orig. 3D-T1 Image (Case 100 in GE3T Dataset)')
+#plt.show()
+
+# Show Properies & Display  Orig 3D  Mask of T1 (Case 100 in GE3T Dataset)
+img=nib.load('Dataset/GE3T/100/orig/3DT1_mask.nii')
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(50,queue-25,50): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(1,3,num)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Orig. 3D-T1 Mask (Case 100 in GE3T Dataset)') 
+#plt.show()
+
+# Show Properies & Display Orig FLAIR  Image (Case 100 in GE3T Dataset)
+img=nib.load('Dataset/GE3T/100/orig/FLAIR.nii') # Select dataset dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(30,queue-30,10): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(1,3,num)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Orig. FLAIR Image (Case 100 in GE3T Dataset)')
+#plt.show()
+
+# Show Properies & Display Orig FLAIR Mask (Case 100 in GE3T Dataset)
+img=nib.load('Dataset/GE3T/100/orig/FLAIR_mask.nii') # Select dataset dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(30,queue-30,10): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(1,3,num)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Orig. FLAIR Mask (Case 100 in GE3T Dataset)')
+#plt.show()
+
+# Show Properies & Display Orig T1  Image  (Case 100 in GE3T Dataset)
+img=nib.load('Dataset/GE3T/100/orig/T1.nii') # Select dataset dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(20,queue-20,20): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(1,3,num)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Orig. T1 Image (Case 100 in GE3T Dataset)')
+#plt.show()
+
+# Show Properies & Display Orig T1  Mask  (Case 100 in GE3T Dataset)
+img=nib.load('Dataset/GE3T/100/orig/T1_mask.nii') # Select dataset dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(20,queue-20,20): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(1,3,num)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Orig. T1 Mask (Case 100 in GE3T Dataset)')
+#plt.show()
+
+# Show Properies & Display Pre 3D of T1 Image  (Case 100 in GE3T Dataset)
+img=nib.load('Dataset/GE3T/100/pre/3DT1.nii') # Select dataset dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(50,queue-25,50): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(1,3,num)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Pre. 3D-T1 Image (Case 100 in GE3T Dataset)')
+#plt.show()
+
+# Show Properies & Display Pre FLAIR Image (Case 100 in GE3T Dataset)
+img=nib.load('Dataset/GE3T/100/pre/FLAIR.nii') # Select dataset dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(30,queue-30,10): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(1,3,num)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Pre. FLAIR Image (Case 100 in GE3T Dataset)')
+plt.show()
+
