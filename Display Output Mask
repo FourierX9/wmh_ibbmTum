@@ -1,0 +1,68 @@
+# Fully Convolutional Network Ensembles for White Matter Hyperintensities Segmentation in MR Images
+# Written By: Hongwei Li, Gongfa Jianga, Jianguo Zhang, Ruixuan Wang, Zhaolei Wang, Wei-Shi Zheng, Bjoern Menze 
+# Available online 18 August 2018, 1053-8119/© 2018 Elsevier Inc. All rights reserved.
+# NeuroImage 183 (2018) 650–665.
+
+# Code Developer: Mohsen MohammadVali'ee, Department of Biomedical Engineering, University of Isfahan, Iran
+# Windows 10, Python 3.8.8, Tensorflow 2.3.0, Keras 2.4.3
+
+# Show Properies & Display Output mask Slices 
+# You can select output and slice
+
+
+
+import matplotlib
+matplotlib.use('TkAgg')
+from matplotlib import pylab as plt
+import nibabel as nib
+import matplotlib.pyplot as plt
+from nibabel import nifti1
+from nibabel.viewers import OrthoSlicer3D
+
+#Output Mask of Patient 0
+
+img=nib.load('Output Mask/0.nii')   # Select output mask dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(16,queue-8,1): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(9,3,num+3)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Output Mask of Patient 0')
+#plt.show()
+
+#Output Mask of Patient 1
+
+img=nib.load('Output Mask/1.nii') # Select output mask dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(16,queue-8,1): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(9,3,num+3)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Output Mask of Patient 1')
+#plt.show()
+
+#Output Mask of Patient 2
+
+img=nib.load('Output Mask/2.nii') # Select output mask dir.
+print (img)
+print (img.header['db_name']) # Output Header Information
+width,height,queue=img.dataobj.shape
+OrthoSlicer3D(img.dataobj)
+num = 1
+for i in range(16,queue-8,1): # Select slice
+    img_arr = img.dataobj[:,:,i]
+    plt.subplot(9,3,num+3)
+    plt.imshow(img_arr,cmap='gray')
+    num +=1
+plt.suptitle('Output Mask of Patient 2')
+plt.show()
